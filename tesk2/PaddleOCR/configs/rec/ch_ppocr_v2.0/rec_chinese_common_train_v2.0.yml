@@ -1,0 +1,118 @@
+Global:
+  use_gpu: false
+  epoch_num: 200
+  # log队列长度
+  log_smooth_window: 20
+  # 设置打印log间隔时间
+  print_batch_step: 10
+  # 模型保存路径output/{算法名称}
+  save_model_dir: ./output/rec_chinese_common_v2.0
+  # 设置模型保存间隔
+  save_epoch_step: 3
+  #模型评估间隔
+  eval_batch_step: [0, 2000]
+  cal_metric_during_train: True
+  # 设置加载预训练模型路径
+  pretrained_model: ./output/resnet_train_bank/latest
+  # 加载模型参数路径,用以中断训练后再次训练
+  checkpoints: ./output/resnet_train_bank/latest
+  save_inference_dir:
+  # 是否启用visualdl可视化模型训练
+  use_visualdl: False
+  # 预测图像文件夹路径
+  infer_img: ./dataset/test/images
+  # 添加字典
+  character_dict_path: ppocr/utils/ppocr_keys_v1.txt
+  character_type: ch   # 设置字符类型
+  max_text_length: 25  # 设置文本最大长度
+  infer_mode: False
+  # 识别空格
+  use_space_char: True
+  # 测试集预测结果保存路径 txt格式
+  # save_res_path: ./output/rec/predicts_chinese_common_v2.0.txt
+  save_res_path: ./answer.json
+
+# 优化器
+Optimizer:
+  name: Adam
+  beta1: 0.9
+  beta2: 0.999
+  lr:
+    name: Cosine
+    learning_rate: 0.001
+  regularizer:
+    name: 'L2'
+    factor: 0.00004
+
+# 组网
+Architecture:
+  model_type: rec
+  algorithm: CRNN
+  Transform:
+  Backbone:
+    name: ResNet
+    layers: 34
+  Neck:
+    name: SequenceEncoder
+    encoder_type: rnn
+    hidden_size: 256
+  Head:
+    name: CTCHead
+    fc_decay: 0.00004
+
+# 损失函数
+Loss:
+  name: CTCLoss
+
+# 后处理模块
+PostProcess:
+  name: CTCLabelDecode
+
+# 指标评估
+Metric:
+  name: RecMetric
+  main_indicator: acc
+
+Train:
+  dataset:
+    # 数据集格式
+    name: SimpleDataSet
+    # 训练集路径
+    data_dir: /aiwin/ocr/submit/dataset/train/images
+    # 训练集标签文件路径
+    label_file_list: ["/aiwin/ocr/submit/dataset/train/label/train.txt"]
+    transforms:
+      - DecodeImage: # load image
+          img_mode: BGR
+          channel_first: False
+      - RecAug: 
+      - CTCLabelEncode: # Class handling label
+      - RecResizeImg:
+          image_shape: [3, 32, 320]
+      - KeepKeys:
+          keep_keys: ['image', 'label', 'length'] # dataloader will return list in this order
+  loader:
+    shuffle: True
+    batch_size_per_card: 256
+    drop_last: True
+    num_workers: 8
+
+Eval:
+  dataset:
+    name: SimpleDataSet
+    data_dir: /aiwin/ocr/submit/dataset/train/images
+    label_file_list: ["/aiwin/ocr/submit/dataset/train/label/train.txt"]
+    transforms:
+      - DecodeImage: # load image
+          img_mode: BGR
+          channel_first: False
+      - CTCLabelEncode: # Class handling label
+      - RecResizeImg:
+          image_shape: [3, 32, 320]
+      - KeepKeys:
+          keep_keys: ['image', 'label', 'length'] # dataloader will return list in this order
+  loader:
+    shuffle: False
+    drop_last: False
+    batch_size_per_card: 256
+    num_workers: 8
